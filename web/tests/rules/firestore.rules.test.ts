@@ -1,12 +1,22 @@
 import { readFileSync } from 'node:fs'
-import { afterAll, beforeAll, beforeEach, describe, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   assertFails,
   assertSucceeds,
   initializeTestEnvironment,
   type RulesTestEnvironment,
 } from '@firebase/rules-unit-testing'
-import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore'
+import { deleteAccountData, exportAccountData, userDataCollections } from '../../src/lib/account'
 
 let environment: RulesTestEnvironment
 
@@ -53,8 +63,13 @@ describe('isolamento do Firestore', () => {
   it('nega escrita sem autenticação e tentativa de trocar o proprietário', async () => {
     const anonymous = environment.unauthenticatedContext().firestore()
     await assertFails(setDoc(doc(anonymous, 'users/aluno-a/subjects/mat'), validSubject('aluno-a')))
+    await environment.withSecurityRulesDisabled(async (context) => {
+      await setDoc(doc(context.firestore(), 'users/aluno-a'), { ownerId: 'aluno-a' })
+    })
     const database = environment.authenticatedContext('aluno-a').firestore()
     await assertFails(setDoc(doc(database, 'users/aluno-a/subjects/mat'), validSubject('aluno-b')))
+    const anotherStudent = environment.authenticatedContext('aluno-b').firestore()
+    await assertFails(deleteDoc(doc(anotherStudent, 'users/aluno-a')))
   })
 
   it('impede leitura cruzada entre estudantes', async () => {
@@ -103,8 +118,50 @@ describe('isolamento do Firestore', () => {
         status: 'PLANNED',
       }),
     )
+    await assertSucceeds(
+      updateDoc(assessmentRef, { grade: 8, status: 'GRADED', updatedAt: serverTimestamp() }),
+    )
     await assertFails(
       updateDoc(assessmentRef, { grade: 11, status: 'GRADED', updatedAt: serverTimestamp() }),
     )
+    await assertFails(
+      updateDoc(assessmentRef, { grade: 9, status: 'GRADED', updatedAt: serverTimestamp() }),
+    )
+  })
+
+  it('exporta apenas os dados da conta autenticada', async () => {
+    await environment.withSecurityRulesDisabled(async (context) => {
+      const database = context.firestore()
+      await setDoc(doc(database, 'users/aluno-a'), { ownerId: 'aluno-a', displayName: 'Aluno A' })
+      await setDoc(doc(database, 'users/aluno-a/subjects/mat'), {
+        ownerId: 'aluno-a',
+        name: 'Matemática',
+      })
+    })
+    const database = environment.authenticatedContext('aluno-a').firestore()
+    const exported = await exportAccountData(database, 'aluno-a')
+
+    expect(exported.perfil.displayName).toBe('Aluno A')
+    expect(exported.colecoes.subjects).toEqual([
+      { id: 'mat', ownerId: 'aluno-a', name: 'Matemática' },
+    ])
+  })
+
+  it('exclui as subcoleções e o perfil somente no espaço do titular', async () => {
+    await environment.withSecurityRulesDisabled(async (context) => {
+      const database = context.firestore()
+      await setDoc(doc(database, 'users/aluno-a'), { ownerId: 'aluno-a' })
+      for (const name of userDataCollections) {
+        await setDoc(doc(database, 'users/aluno-a', name, 'registro'), { ownerId: 'aluno-a' })
+      }
+    })
+    const database = environment.authenticatedContext('aluno-a').firestore()
+    await deleteAccountData(database, 'aluno-a')
+
+    expect((await getDoc(doc(database, 'users/aluno-a'))).exists()).toBe(false)
+    for (const name of userDataCollections) {
+      const snapshot = await getDocs(collection(database, 'users', 'aluno-a', name))
+      expect(snapshot.empty).toBe(true)
+    }
   })
 })

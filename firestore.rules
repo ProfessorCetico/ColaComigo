@@ -95,6 +95,17 @@ service cloud.firestore {
         && (!('grade' in data) || data.grade == null);
     }
 
+    function validAssessmentGradeUpdate(uid) {
+      return validOwnedUpdate(uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['grade', 'status', 'updatedAt'])
+        && (!('grade' in resource.data) || resource.data.grade == null)
+        && resource.data.status in ['PLANNED', 'COMPLETED_AWAITING_GRADE']
+        && request.resource.data.status == 'GRADED'
+        && request.resource.data.grade is number
+        && request.resource.data.grade >= 0
+        && request.resource.data.grade <= resource.data.maximumGrade;
+    }
+
     function validSession(uid, data) {
       return validOwnedCreate(uid, data)
         && data.keys().hasOnly([
@@ -130,7 +141,7 @@ service cloud.firestore {
         && request.resource.data.displayName.size() <= 60
         && request.resource.data.state is string
         && request.resource.data.state.size() == 2;
-      allow delete: if false;
+      allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
 
       match /academicPeriods/{periodId} {
         allow read: if signedInAs(uid);
@@ -175,7 +186,8 @@ service cloud.firestore {
       match /assessments/{assessmentId} {
         allow read: if signedInAs(uid);
         allow create: if validAssessment(uid, request.resource.data);
-        allow update: if validOwnedUpdate(uid)
+        allow update: if validAssessmentGradeUpdate(uid)
+          || (validOwnedUpdate(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'title', 'type', 'scheduledAt', 'contentDescription', 'weight', 'maximumGrade',
             'estimatedStudyMinutes', 'studyMinutesCompleted', 'status', 'updatedAt'
@@ -195,7 +207,7 @@ service cloud.firestore {
           && request.resource.data.estimatedStudyMinutes <= 600
           && (!('weight' in request.resource.data) || (request.resource.data.weight is number && request.resource.data.weight > 0 && request.resource.data.weight <= 100))
           && request.resource.data.grade == resource.data.grade
-          && (request.resource.data.status != 'GRADED' || resource.data.status == 'GRADED');
+          && (request.resource.data.status != 'GRADED' || resource.data.status == 'GRADED'));
         allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
       }
       match /studySessions/{sessionId} {
@@ -284,11 +296,13 @@ service cloud.firestore {
       }
       match /planningRuns/{runId} {
         allow read: if signedInAs(uid);
-        allow write: if false;
+        allow create, update: if false;
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
       }
       match /auditEvents/{eventId} {
         allow read: if signedInAs(uid);
-        allow write: if false;
+        allow create, update: if false;
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
       }
       match /{document=**} {
         allow read, write: if false;

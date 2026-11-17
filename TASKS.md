@@ -12,4 +12,4 @@
 
 ## Limitações para a próxima etapa
 
-O MVP ainda não implementa consentimento verificável de responsável, edição completa de sessões ou histórico de auditoria, nem foi publicado no Firebase. O suporte a fusos e horário de verão requer validação adicional. A auditoria atual encontrou avisos em dependências de desenvolvimento do site e 8 vulnerabilidades moderadas em dependências das funções; as atualizações sugeridas exigem mudanças de versão principal e precisam de validação de compatibilidade. Nenhuma credencial Firebase foi fornecida ou gravada neste repositório.
+O MVP ainda não implementa consentimento verificável de responsável, edição completa de sessões ou histórico de auditoria, nem foi publicado no Firebase. O suporte a fusos e horário de verão requer validação adicional. A auditoria atual encontrou avisos em dependências de desenvolvimento do site e 8 vulnerabilidades moderadas no backend opcional; esse backend não é implantado pelo fluxo Spark. Nenhuma credencial Firebase foi fornecida ou gravada neste repositório.

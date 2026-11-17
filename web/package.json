@@ -14,8 +14,8 @@
     "test:watch": "vitest",
     "test:rules": "firebase --config ../firebase.json emulators:exec --project cola-comigo-test --only firestore \"npm run test:rules:run\"",
     "test:rules:run": "vitest run --config vitest.rules.config.ts",
-    "emulators": "firebase --config ../firebase.json emulators:start --project cola-comigo-local --only auth,firestore,functions",
-    "deploy": "npm --prefix ../functions run lint && npm --prefix ../functions run build && npm run build && firebase --config ../firebase.json deploy --only hosting,functions,firestore:rules,firestore:indexes"
+    "emulators": "firebase --config ../firebase.json emulators:start --project cola-comigo-local --only auth,firestore",
+    "deploy": "npm run build && firebase --config ../firebase.json deploy --only hosting,firestore:rules,firestore:indexes"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

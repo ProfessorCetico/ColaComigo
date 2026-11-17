@@ -2,7 +2,6 @@ import { getApps, initializeApp } from 'firebase/app'
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check'
 import { connectAuthEmulator, getAuth } from 'firebase/auth'
 import { connectFirestoreEmulator, getFirestore } from 'firebase/firestore'
-import { connectFunctionsEmulator, getFunctions } from 'firebase/functions'
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -30,10 +29,8 @@ if (app && import.meta.env.VITE_FIREBASE_APPCHECK_SITE_KEY) {
 
 export const auth = app ? getAuth(app) : null
 export const db = app ? getFirestore(app) : null
-export const functions = app ? getFunctions(app) : null
 
 if (app && import.meta.env.VITE_USE_FIREBASE_EMULATORS === 'true') {
   if (auth) connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
   if (db) connectFirestoreEmulator(db, '127.0.0.1', 8080)
-  if (functions) connectFunctionsEmulator(functions, '127.0.0.1', 5001)
 }

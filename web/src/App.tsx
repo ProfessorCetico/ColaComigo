@@ -10,7 +10,6 @@ import {
   writeBatch,
   type DocumentData,
 } from 'firebase/firestore'
-import { httpsCallable } from 'firebase/functions'
 import { addDays, format, getDay, isAfter, parseISO, startOfDay } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import {
@@ -56,6 +55,9 @@ import {
   signInWithEmailAndPassword,
   signOut,
   reload,
+  deleteUser,
+  EmailAuthProvider,
+  reauthenticateWithCredential,
   type User,
 } from 'firebase/auth'
 import { z } from 'zod'
@@ -73,7 +75,8 @@ import {
   type Subject,
   type SubjectInput,
 } from './domain/schemas'
-import { auth, db, functions } from './lib/firebase'
+import { auth, db } from './lib/firebase'
+import { deleteAccountData, exportAccountData } from './lib/account'
 import { dateKey, formatDate, zonedTimeToIso } from './lib/dates'
 const GradeChart = lazy(() => import('./components/GradeChart'))
 import './App.css'
@@ -1402,20 +1405,19 @@ function AssessmentsPage() {
     }
   }
   async function recordGrade(assessment: Assessment, raw: string) {
-    if (!user || !functions || raw === '') return
+    if (!user || !db || raw === '') return
     const grade = Number(raw)
     if (!Number.isFinite(grade) || grade < 0 || grade > assessment.maximumGrade)
       return setError(`A nota deve estar entre 0 e ${assessment.maximumGrade}.`)
     try {
-      await httpsCallable<{ assessmentId: string; grade: number }, { recorded: boolean }>(
-        functions,
-        'recordAssessmentGrade',
-      )({ assessmentId: assessment.id, grade })
+      await updateDoc(doc(db, 'users', user.uid, 'assessments', assessment.id), {
+        grade,
+        status: 'GRADED',
+        updatedAt: serverTimestamp(),
+      })
       setError('')
     } catch {
-      setError(
-        'Não foi possível registrar a nota. Confirme se as funções Firebase foram publicadas.',
-      )
+      setError('Não foi possível registrar a nota. Verifique sua conexão e tente novamente.')
     }
   }
   const sorted = [...assessments].sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt))
@@ -2228,40 +2230,69 @@ function ProfilePage() {
   const { profile } = useProfile()
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
+  const [deletePassword, setDeletePassword] = useState('')
+  const [showDeleteForm, setShowDeleteForm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   async function exportData() {
-    if (!functions) return setError('O serviço de exportação ainda não foi configurado.')
+    if (!user || !db) return setError('O serviço de dados ainda não está configurado.')
     try {
-      const call = httpsCallable(functions, 'exportUserData')
-      const response = await call({})
-      const blob = new Blob([JSON.stringify(response.data, null, 2)], { type: 'application/json' })
+      const data = await exportAccountData(db, user.uid)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = url
       link.download = 'cola-comigo-meus-dados.json'
+      document.body.append(link)
       link.click()
-      URL.revokeObjectURL(url)
+      link.remove()
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
       setNotice('Sua exportação foi preparada.')
+      setError('')
     } catch {
       setError('Não foi possível exportar seus dados. Tente novamente mais tarde.')
     }
   }
-  async function deleteAccount() {
-    if (!user || !functions || !auth)
-      return setError('O serviço de exclusão ainda não foi configurado.')
+  function requestAccountDeletion() {
+    if (!user || !db || !user.email)
+      return setError('Não foi possível confirmar os dados da sua conta.')
     if (
       !window.confirm(
         'Excluir sua conta e os dados acadêmicos associados? Esta ação não pode ser desfeita.',
       )
     )
       return
+    setError('')
+    setNotice('')
+    setShowDeleteForm(true)
+  }
+  async function deleteAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!user || !db || !user.email) {
+      setError('Não foi possível confirmar os dados da sua conta.')
+      return
+    }
+    if (!deletePassword) {
+      setError('Informe sua senha para confirmar a exclusão.')
+      return
+    }
+    setDeleting(true)
     try {
-      await httpsCallable(functions, 'deleteUserData')({})
-      await signOut(auth)
+      const credential = EmailAuthProvider.credential(user.email, deletePassword)
+      await reauthenticateWithCredential(user, credential)
+      await deleteAccountData(db, user.uid)
+      await deleteUser(user)
       window.location.assign('/')
-    } catch {
+    } catch (deleteError) {
+      const code =
+        deleteError instanceof Error && 'code' in deleteError ? String(deleteError.code) : ''
       setError(
-        'A exclusão segura da conta ainda não está disponível. Entre em contato com o suporte.',
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password'
+          ? 'A senha informada não confere.'
+          : 'Não foi possível concluir a exclusão. A conta continua ativa, mas os dados podem ter sido removidos parcialmente. Tente novamente.',
       )
+      setDeletePassword('')
+    } finally {
+      setDeleting(false)
     }
   }
   return (
@@ -2298,10 +2329,39 @@ function ProfilePage() {
           <button className="button secondary" onClick={exportData}>
             <ArrowDownToLine size={16} /> Exportar meus dados (JSON)
           </button>
-          <button className="button danger" onClick={deleteAccount}>
+          <button className="button danger" onClick={requestAccountDeletion}>
             <Trash2 size={16} /> Excluir conta e dados
           </button>
         </div>
+        {showDeleteForm && (
+          <form className="form-grid" onSubmit={deleteAccount}>
+            <Field label="Senha atual">
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={deletePassword}
+                onChange={(event) => setDeletePassword(event.target.value)}
+                required
+              />
+            </Field>
+            <div className="form-actions">
+              <button
+                className="button secondary"
+                type="button"
+                disabled={deleting}
+                onClick={() => {
+                  setShowDeleteForm(false)
+                  setDeletePassword('')
+                }}
+              >
+                Cancelar
+              </button>
+              <button className="button danger" type="submit" disabled={deleting}>
+                {deleting ? 'Excluindo...' : 'Confirmar exclusão'}
+              </button>
+            </div>
+          </form>
+        )}
       </section>
       {notice && (
         <p className="inline-notice" role="status">

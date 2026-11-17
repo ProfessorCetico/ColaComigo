@@ -9,7 +9,7 @@ Aplicativo de programação de rotina de estudos. O site funciona em navegadores
 - React, TypeScript strict e Vite;
 - Tailwind CSS 4 e CSS responsivo;
 - React Router, React Hook Form, Zod, date-fns e Recharts;
-- Firebase Authentication, Cloud Firestore, Cloud Functions e Hosting;
+- Firebase Authentication, Cloud Firestore e Hosting;
 - Firebase Emulator Suite para desenvolvimento e testes;
 - Vitest, Testing Library e testes das regras do Firestore.
 
@@ -33,7 +33,7 @@ Para usar os emuladores locais, defina `VITE_USE_FIREBASE_EMULATORS=true` em `.e
 
 ```powershell
 # Na pasta ColaComigo
-firebase --config firebase.json emulators:start --project cola-comigo-local --only auth,firestore,functions
+firebase --config firebase.json emulators:start --project cola-comigo-local --only auth,firestore
 
 # Na pasta ColaComigo/web
 npm.cmd run dev
@@ -54,7 +54,7 @@ npm.cmd run build
 npm.cmd run preview
 ```
 
-`test:rules` inicia o emulador do Firestore e exige Java. As funções ficam em `functions/`; `npm install` e `npm run build` nessa pasta preparam seu código TypeScript.
+`test:rules` inicia o emulador do Firestore e exige Java. O código legado em `functions/` é opcional e não é usado nem publicado pelo fluxo Spark.
 
 ## Configuração do Firebase
 
@@ -63,10 +63,10 @@ npm.cmd run preview
 3. Em Authentication, habilite e-mail e senha, configure os e-mails de verificação e recuperação e revise os domínios autorizados.
 4. Inicialize Firestore em modo de produção. As regras deste repositório negam acesso por padrão e limitam cada estudante ao seu próprio caminho `users/{uid}`.
 5. Configure Firebase CLI (`firebase login` e `firebase use --add`) na pasta do projeto. O arquivo `.firebaserc` é local e não deve ser compartilhado.
-6. Publique as regras, índices, funções e o site com `npm.cmd run deploy` na pasta `web`.
+6. Publique o site, as regras e os índices com `npm.cmd run deploy` na pasta `web`. Esse comando não publica Cloud Functions e funciona com o plano Spark, sujeito às cotas gratuitas do Firebase.
 7. Para habilitar App Check, configure uma chave reCAPTCHA v3 no Firebase e informe `VITE_FIREBASE_APPCHECK_SITE_KEY`. A proteção precisa ser configurada e validada no Console antes de ser exigida em produção.
 
-As funções de exportação e exclusão usam Admin SDK no servidor. A implantação de Cloud Functions pode exigir o plano de faturamento Blaze do Firebase/Google Cloud.
+Authentication, Firestore e Hosting têm cotas sem custo no Spark. Ao atingir uma cota, novas operações podem ser recusadas até a renovação do limite. O código opcional em `functions/` exige Blaze para publicação e pode gerar cobrança; ele não faz parte do deploy padrão.
 
 ## Incorporar no Google Sites
 
@@ -80,13 +80,14 @@ As funções de exportação e exclusão usam Admin SDK no servidor. A implanta�
 
 - O Firebase Authentication gerencia senhas; elas nunca são gravadas no Firestore.
 - Perfis e dados acadêmicos ficam em subcoleções individuais por UID; as regras bloqueiam leitura entre contas.
+- A exportação e a exclusão de dados são feitas no navegador com a conta autenticada. A exclusão pede a senha atual e remove os documentos em lotes protegidos pelas regras.
 - A agenda calcula sugestões de forma determinística usando avaliações, sessões existentes, compromissos pontuais e recorrentes, viagens, fuso horário e preferências. O estudante confirma antes de substituir sessões geradas.
 - Notas fora do intervalo permitido são recusadas. A aplicação só indica que uma meta foi alcançada quando a regra é conhecida e foi informada.
 - Médias e sugestões não substituem o resultado oficial da instituição de ensino.
 
 ## Privacidade e revisão pré-lançamento
 
-O produto pode armazenar informações de menores. Os textos de termos e privacidade são provisórios; a validação jurídica da LGPD, das políticas para menores e do consentimento de responsáveis deve ser feita por profissional qualificado antes do lançamento público. A versão atual ainda não implementa verificação do consentimento do responsável, exportação/exclusão operacional completas, políticas de retenção nem fluxo de revisão de solicitações.
+O produto pode armazenar informações de menores. Os textos de termos e privacidade são provisórios; a validação jurídica da LGPD, das políticas para menores e do consentimento de responsáveis deve ser feita por profissional qualificado antes do lançamento público. A versão atual ainda não implementa verificação do consentimento do responsável, políticas de retenção nem fluxo de revisão de solicitações.
 
 Não colete endereço residencial, localização em tempo real, dados para publicidade ou dados pessoais em URLs. Não adicione segredos ao repositório.
 
@@ -95,7 +96,7 @@ Não colete endereço residencial, localização em tempo real, dados para publi
 - Firebase e domínio ainda não foram configurados; não há contas reais até essa etapa ser concluída.
 - O planejador considera compromissos recorrentes, viagens e fuso IANA; cenários extremos de fuso/horário de verão e prévia detalhada das mudanças ainda precisam de validação.
 - A agenda mostra sessões como lista semanal; edição manual completa, feedback de dificuldade e visualização diária ainda não estão prontos.
-- A exclusão e exportação dependem de implantação e validação das Cloud Functions.
+- A exportação e a exclusão pelo navegador dependem de regras publicadas e conexão ativa; uma interrupção durante a exclusão pode exigir nova tentativa.
 - Regras de aprovação e gráficos são uma base inicial; projeções, histórico de alterações e todos os tipos de recuperação escolar ainda precisam de cobertura adicional.
 - O fluxo para menores precisa de revisão e implementação antes do lançamento público.
 - Ainda não há testes de ponta a ponta em navegador ou revisão jurídica.
