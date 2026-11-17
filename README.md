@@ -1,6 +1,6 @@
 # Cola comigo
 
-Agenda de estudos web responsiva para estudantes. O site funciona em navegadores de celular, tablet e computador, pode ser instalado como PWA e pode ser incorporado em uma página do Google Sites.
+Aplicativo de programação de rotina de estudos. O site funciona em navegadores de celular, tablet e computador, pode ser instalado como PWA e pode ser incorporado em uma página do Google Sites.
 
 > A configuração Firebase e o domínio de hospedagem ainda precisam ser fornecidos pelo proprietário. Sem essas configurações, o site mostra a página pública, mas não permite criar contas nem salvar dados.
 
