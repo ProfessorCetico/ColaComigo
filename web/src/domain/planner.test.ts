@@ -64,8 +64,8 @@ describe('generatePlan', () => {
     const result = plan({
       planningDays: 2,
       blockedTimes: [
-        { startsAt: '2026-11-17T15:00:00', endsAt: '2026-11-17T21:00:00' },
-        { startsAt: '2026-11-18T15:00:00', endsAt: '2026-11-18T21:00:00' },
+        { startsAt: '2026-11-17T18:00:00.000Z', endsAt: '2026-11-18T00:00:00.000Z' },
+        { startsAt: '2026-11-18T18:00:00.000Z', endsAt: '2026-11-19T00:00:00.000Z' },
       ],
     })
     expect(result.sessions.every((session) => !session.startsAt.startsWith('2026-11-17'))).toBe(

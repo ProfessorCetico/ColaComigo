@@ -6,6 +6,7 @@
 - [x] Implementar cálculos de notas e planejador determinístico com testes unitários.
 - [x] Preparar Firestore Rules, emuladores, funções de exportação/exclusão e documentação.
 - [x] Corrigir e executar lint, typecheck, testes unitários, testes das regras e build.
+- [x] Integrar o commit inicial remoto e publicar a aplicação web no GitHub.
 - [ ] Configurar Firebase e domínio do proprietário, publicar e validar incorporação no Google Sites.
 - [ ] Revisar consentimento de menores, privacidade e textos legais com profissional qualificado.
 
