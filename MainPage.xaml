@@ -1,0 +1,56 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="ColaComigo.MainPage"
+             Title="Início"
+             BackgroundColor="#F5F8F6">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="28,44" Spacing="22" MaximumWidthRequest="720" HorizontalOptions="Center">
+            <Label
+                Text="Cola comigo"
+                FontSize="32"
+                FontAttributes="Bold"
+                TextColor="#20483F"
+                SemanticProperties.HeadingLevel="Level1" />
+
+            <Label
+                Text="Sua agenda escolar, simples e sempre por perto."
+                FontSize="17"
+                TextColor="#52665F" />
+
+            <Border
+                BackgroundColor="#E7F1ED"
+                StrokeThickness="0"
+                Padding="24"
+                StrokeShape="RoundRectangle 24">
+                <VerticalStackLayout Spacing="12">
+                    <Label
+                        Text="Bem-vindo(a)!"
+                        FontSize="23"
+                        FontAttributes="Bold"
+                        TextColor="#20483F"
+                        SemanticProperties.HeadingLevel="Level2" />
+                    <Label
+                        Text="Este é o começo do seu espaço de estudos. Em breve, você poderá reunir tarefas, provas e lembretes por aqui."
+                        FontSize="16"
+                        LineHeight="1.35"
+                        TextColor="#40574F" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label
+                Text="Feito para acompanhar você"
+                FontSize="18"
+                FontAttributes="Bold"
+                TextColor="#20483F"
+                Margin="0,6,0,0" />
+            <Label
+                Text="Abra sua agenda no Android ou no Windows e mantenha sua rotina escolar sempre à mão."
+                FontSize="16"
+                LineHeight="1.35"
+                TextColor="#52665F" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>
