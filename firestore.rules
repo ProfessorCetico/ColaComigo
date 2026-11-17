@@ -1,0 +1,302 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function validProfile(uid, data) {
+      return data.keys().hasOnly([
+          'ownerId', 'email', 'displayName', 'ageRange', 'country', 'state', 'city',
+          'educationLevel', 'institutionName', 'courseName', 'gradeOrTerm', 'schoolShift',
+          'timezone', 'onboardingCompleted', 'studyPreferences', 'consentVersion',
+          'consentAcceptedAt', 'role', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'ownerId', 'email', 'displayName', 'ageRange', 'country', 'state', 'city',
+          'educationLevel', 'courseName', 'gradeOrTerm', 'schoolShift', 'timezone',
+          'onboardingCompleted', 'consentVersion', 'consentAcceptedAt', 'role',
+          'createdAt', 'updatedAt'
+        ])
+        && data.ownerId == uid
+        && data.email is string && data.email.size() <= 254
+        && data.displayName is string && data.displayName.size() >= 2 && data.displayName.size() <= 60
+        && data.ageRange in ['UNDER_13', '13_15', '16_17', '18_PLUS']
+        && data.country is string && data.country.size() == 2
+        && data.state is string && data.state.size() == 2
+        && data.city is string && data.city.size() <= 80
+        && data.educationLevel in ['FUNDAMENTAL', 'MEDIO', 'TECNICO', 'SUPERIOR', 'OUTRO']
+        && data.courseName is string && data.courseName.size() <= 100
+        && data.gradeOrTerm is string && data.gradeOrTerm.size() <= 50
+        && data.schoolShift in ['MANHA', 'TARDE', 'NOITE', 'INTEGRAL', 'FLEXIVEL']
+        && data.timezone is string && data.timezone.size() <= 64
+        && data.role == 'STUDENT'
+        && data.onboardingCompleted == true
+        && data.studyPreferences is map
+        && data.studyPreferences.keys().hasOnly([
+          'preferredSessionMinutes', 'minimumSessionMinutes', 'maximumSessionMinutes',
+          'minimumBreakMinutes', 'maximumDailyStudyMinutes', 'allowedDaysOfWeek',
+          'preferredStartTime', 'preferredEndTime'
+        ])
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validOwnedCreate(uid, data) {
+      return signedInAs(uid)
+        && data.ownerId == uid
+        && data.keys().hasAll(['ownerId', 'createdAt', 'updatedAt'])
+        && data.createdAt == request.time
+        && data.updatedAt == request.time;
+    }
+
+    function validOwnedUpdate(uid) {
+      return signedInAs(uid)
+        && resource.data.ownerId == uid
+        && request.resource.data.ownerId == resource.data.ownerId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    function validSubject(uid, data) {
+      return validOwnedCreate(uid, data)
+        && data.keys().hasOnly([
+          'ownerId', 'createdAt', 'updatedAt', 'name', 'color', 'calculationType',
+          'passingGrade', 'maximumGrade', 'expectedAssessmentCount', 'knownByStudent',
+          'status', 'currentAverage', 'completedAt', 'approvalReachedAt'
+        ])
+        && data.name is string && data.name.size() >= 2 && data.name.size() <= 80
+        && data.color is string && data.color.matches('^#[0-9A-Fa-f]{6}$')
+        && data.calculationType in ['SIMPLE_AVERAGE', 'WEIGHTED_AVERAGE', 'POINTS_TOTAL', 'MANUAL']
+        && data.maximumGrade is number && data.maximumGrade > 0 && data.maximumGrade <= 1000
+        && (!('passingGrade' in data) || (data.passingGrade is number && data.passingGrade >= 0 && data.passingGrade <= data.maximumGrade))
+        && (!('expectedAssessmentCount' in data) || (data.expectedAssessmentCount is int && data.expectedAssessmentCount > 0 && data.expectedAssessmentCount <= 100))
+        && (!('currentAverage' in data) || data.currentAverage == null || (data.currentAverage is number && data.currentAverage >= 0 && data.currentAverage <= data.maximumGrade))
+        && data.knownByStudent is bool
+        && data.status in ['NEW', 'IN_PROGRESS', 'ATTENTION', 'APPROVAL_REACHED', 'COMPLETED', 'ARCHIVED'];
+    }
+
+    function validAssessment(uid, data) {
+      return validOwnedCreate(uid, data)
+        && data.keys().hasOnly([
+          'ownerId', 'createdAt', 'updatedAt', 'subjectId', 'title', 'type', 'scheduledAt',
+          'contentDescription', 'weight', 'maximumGrade', 'grade', 'estimatedStudyMinutes',
+          'status', 'studyMinutesCompleted'
+        ])
+        && data.subjectId is string
+        && data.title is string && data.title.size() >= 2 && data.title.size() <= 100
+        && data.type in ['EXAM', 'QUIZ', 'ASSIGNMENT', 'PRESENTATION', 'PROJECT', 'OTHER']
+        && data.scheduledAt is string && data.scheduledAt.size() <= 40
+        && data.maximumGrade is number && data.maximumGrade > 0 && data.maximumGrade <= 1000
+        && data.estimatedStudyMinutes is int && data.estimatedStudyMinutes >= 15 && data.estimatedStudyMinutes <= 600
+        && data.status == 'PLANNED'
+        && (!('weight' in data) || (data.weight is number && data.weight > 0 && data.weight <= 100))
+        && (!('contentDescription' in data) || (data.contentDescription is string && data.contentDescription.size() <= 500))
+        && (!('grade' in data) || data.grade == null);
+    }
+
+    function validSession(uid, data) {
+      return validOwnedCreate(uid, data)
+        && data.keys().hasOnly([
+          'ownerId', 'createdAt', 'updatedAt', 'subjectId', 'assessmentId', 'title',
+          'contentDescription', 'startsAt', 'endsAt', 'plannedMinutes', 'completedMinutes',
+          'status', 'difficultyFeedback', 'generatedByPlanner', 'manuallyEdited', 'rescheduleCount'
+        ])
+        && data.subjectId is string
+        && data.title is string && data.title.size() <= 120
+        && data.startsAt is string && data.endsAt is string
+        && data.plannedMinutes is int && data.plannedMinutes > 0 && data.plannedMinutes <= 600
+        && data.completedMinutes is int && data.completedMinutes >= 0 && data.completedMinutes <= data.plannedMinutes
+        && data.status in ['PLANNED', 'COMPLETED', 'POSTPONED', 'MISSED', 'CANCELED']
+        && data.generatedByPlanner is bool && data.manuallyEdited is bool;
+    }
+
+    match /users/{uid} {
+      allow read: if signedInAs(uid);
+      allow create: if signedInAs(uid) && validProfile(uid, request.resource.data);
+      allow update: if signedInAs(uid)
+        && resource.data.ownerId == uid
+        && request.resource.data.ownerId == uid
+        && request.resource.data.email == resource.data.email
+        && request.resource.data.role == resource.data.role
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'displayName', 'city', 'state', 'institutionName', 'courseName', 'gradeOrTerm',
+          'schoolShift', 'studyPreferences', 'updatedAt'
+        ])
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() >= 2
+        && request.resource.data.displayName.size() <= 60
+        && request.resource.data.state is string
+        && request.resource.data.state.size() == 2;
+      allow delete: if false;
+
+      match /academicPeriods/{periodId} {
+        allow read: if signedInAs(uid);
+        allow create: if validOwnedCreate(uid, request.resource.data)
+          && request.resource.data.keys().hasOnly(['ownerId', 'createdAt', 'updatedAt', 'name', 'startDate', 'endDate', 'active', 'status'])
+          && request.resource.data.keys().hasAll(['ownerId', 'createdAt', 'updatedAt', 'name', 'startDate', 'endDate', 'active', 'status'])
+          && request.resource.data.name is string && request.resource.data.name.size() <= 80
+          && request.resource.data.startDate is string && request.resource.data.endDate is string
+          && request.resource.data.active is bool
+          && request.resource.data.status in ['ACTIVE', 'COMPLETED', 'ARCHIVED'];
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'startDate', 'endDate', 'active', 'status', 'updatedAt'])
+          && request.resource.data.name is string && request.resource.data.name.size() <= 80
+          && request.resource.data.startDate is string && request.resource.data.endDate is string
+          && request.resource.data.active is bool
+          && request.resource.data.status in ['ACTIVE', 'COMPLETED', 'ARCHIVED'];
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /subjects/{subjectId} {
+        allow read: if signedInAs(uid);
+        allow create: if validSubject(uid, request.resource.data);
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'color', 'calculationType', 'passingGrade', 'maximumGrade',
+            'expectedAssessmentCount', 'knownByStudent', 'status', 'currentAverage',
+            'completedAt', 'approvalReachedAt', 'updatedAt'
+          ])
+          && request.resource.data.name is string
+          && request.resource.data.name.size() >= 2
+          && request.resource.data.name.size() <= 80
+          && request.resource.data.color is string
+          && request.resource.data.color.matches('^#[0-9A-Fa-f]{6}$')
+          && request.resource.data.calculationType in ['SIMPLE_AVERAGE', 'WEIGHTED_AVERAGE', 'POINTS_TOTAL', 'MANUAL']
+          && request.resource.data.maximumGrade is number
+          && request.resource.data.maximumGrade > 0
+          && request.resource.data.maximumGrade <= 1000
+          && (!('passingGrade' in request.resource.data) || (request.resource.data.passingGrade is number && request.resource.data.passingGrade >= 0 && request.resource.data.passingGrade <= request.resource.data.maximumGrade))
+          && request.resource.data.knownByStudent is bool
+          && request.resource.data.status in ['NEW', 'IN_PROGRESS', 'ATTENTION', 'APPROVAL_REACHED', 'COMPLETED', 'ARCHIVED'];
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /assessments/{assessmentId} {
+        allow read: if signedInAs(uid);
+        allow create: if validAssessment(uid, request.resource.data);
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'type', 'scheduledAt', 'contentDescription', 'weight', 'maximumGrade',
+            'estimatedStudyMinutes', 'studyMinutesCompleted', 'status', 'updatedAt'
+          ])
+          && request.resource.data.status in ['PLANNED', 'COMPLETED_AWAITING_GRADE', 'GRADED', 'CANCELED']
+          && request.resource.data.title is string
+          && request.resource.data.title.size() >= 2
+          && request.resource.data.title.size() <= 100
+          && request.resource.data.type in ['EXAM', 'QUIZ', 'ASSIGNMENT', 'PRESENTATION', 'PROJECT', 'OTHER']
+          && request.resource.data.scheduledAt is string
+          && request.resource.data.scheduledAt.size() <= 40
+          && request.resource.data.maximumGrade is number
+          && request.resource.data.maximumGrade > 0
+          && request.resource.data.maximumGrade <= 1000
+          && request.resource.data.estimatedStudyMinutes is int
+          && request.resource.data.estimatedStudyMinutes >= 15
+          && request.resource.data.estimatedStudyMinutes <= 600
+          && (!('weight' in request.resource.data) || (request.resource.data.weight is number && request.resource.data.weight > 0 && request.resource.data.weight <= 100))
+          && request.resource.data.grade == resource.data.grade
+          && (request.resource.data.status != 'GRADED' || resource.data.status == 'GRADED');
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /studySessions/{sessionId} {
+        allow read: if signedInAs(uid);
+        allow create: if validSession(uid, request.resource.data);
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'contentDescription', 'startsAt', 'endsAt', 'plannedMinutes',
+            'completedMinutes', 'status', 'difficultyFeedback', 'manuallyEdited',
+            'rescheduleCount', 'updatedAt'
+          ])
+          && request.resource.data.title is string
+          && request.resource.data.title.size() >= 1
+          && request.resource.data.title.size() <= 120
+          && request.resource.data.startsAt is string
+          && request.resource.data.startsAt.size() <= 40
+          && request.resource.data.endsAt is string
+          && request.resource.data.endsAt.size() <= 40
+          && request.resource.data.plannedMinutes is int
+          && request.resource.data.plannedMinutes > 0
+          && request.resource.data.plannedMinutes <= 600
+          && request.resource.data.completedMinutes is int
+          && request.resource.data.completedMinutes >= 0
+          && request.resource.data.completedMinutes <= request.resource.data.plannedMinutes
+          && request.resource.data.generatedByPlanner is bool
+          && request.resource.data.manuallyEdited is bool
+          && request.resource.data.status in ['PLANNED', 'COMPLETED', 'POSTPONED', 'MISSED', 'CANCELED'];
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /exceptionalEvents/{eventId} {
+        allow read: if signedInAs(uid);
+        allow create: if validOwnedCreate(uid, request.resource.data)
+          && request.resource.data.keys().hasOnly(['ownerId', 'createdAt', 'updatedAt', 'title', 'category', 'startsAt', 'endsAt', 'blocksStudy', 'notes'])
+          && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 100
+          && request.resource.data.startsAt is string && request.resource.data.endsAt is string
+          && request.resource.data.blocksStudy is bool
+          && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500));
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'category', 'startsAt', 'endsAt', 'blocksStudy', 'notes', 'updatedAt'])
+          && request.resource.data.title is string && request.resource.data.title.size() >= 2 && request.resource.data.title.size() <= 100
+          && request.resource.data.startsAt is string && request.resource.data.endsAt is string
+          && request.resource.data.blocksStudy is bool
+          && (!('notes' in request.resource.data) || (request.resource.data.notes is string && request.resource.data.notes.size() <= 500));
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /recurringCommitments/{commitmentId} {
+        allow read: if signedInAs(uid);
+        allow create: if validOwnedCreate(uid, request.resource.data)
+          && request.resource.data.keys().hasOnly(['ownerId', 'createdAt', 'updatedAt', 'title', 'category', 'daysOfWeek', 'startTime', 'endTime', 'active'])
+          && request.resource.data.title is string && request.resource.data.title.size() <= 100
+          && request.resource.data.daysOfWeek is list && request.resource.data.daysOfWeek.size() <= 7
+          && request.resource.data.daysOfWeek.size() > 0
+          && request.resource.data.startTime is string && request.resource.data.startTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          && request.resource.data.endTime is string && request.resource.data.endTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          && request.resource.data.active is bool;
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'category', 'daysOfWeek', 'startTime', 'endTime', 'active', 'updatedAt'])
+          && request.resource.data.title is string && request.resource.data.title.size() <= 100
+          && request.resource.data.daysOfWeek is list && request.resource.data.daysOfWeek.size() > 0 && request.resource.data.daysOfWeek.size() <= 7
+          && request.resource.data.startTime is string && request.resource.data.startTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          && request.resource.data.endTime is string && request.resource.data.endTime.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          && request.resource.data.active is bool;
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /trips/{tripId} {
+        allow read: if signedInAs(uid);
+        allow create: if validOwnedCreate(uid, request.resource.data)
+          && request.resource.data.keys().hasOnly(['ownerId', 'createdAt', 'updatedAt', 'title', 'startsAt', 'endsAt', 'studyAllowed', 'dailyAvailableMinutes', 'notes'])
+          && request.resource.data.title is string && request.resource.data.title.size() <= 100
+          && request.resource.data.startsAt is string && request.resource.data.endsAt is string
+          && request.resource.data.studyAllowed is bool
+          && request.resource.data.dailyAvailableMinutes is int
+          && request.resource.data.dailyAvailableMinutes >= 0
+          && request.resource.data.dailyAvailableMinutes <= 600;
+        allow update: if validOwnedUpdate(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'title', 'startsAt', 'endsAt', 'studyAllowed', 'dailyAvailableMinutes', 'notes', 'updatedAt'
+          ])
+          && request.resource.data.title is string && request.resource.data.title.size() <= 100
+          && request.resource.data.startsAt is string && request.resource.data.endsAt is string
+          && request.resource.data.studyAllowed is bool
+          && request.resource.data.dailyAvailableMinutes is int
+          && request.resource.data.dailyAvailableMinutes >= 0
+          && request.resource.data.dailyAvailableMinutes <= 600;
+        allow delete: if signedInAs(uid) && resource.data.ownerId == uid;
+      }
+      match /planningRuns/{runId} {
+        allow read: if signedInAs(uid);
+        allow write: if false;
+      }
+      match /auditEvents/{eventId} {
+        allow read: if signedInAs(uid);
+        allow write: if false;
+      }
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

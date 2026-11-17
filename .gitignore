@@ -2,6 +2,19 @@
 bin/
 obj/
 artifacts/
+node_modules/
+web/node_modules/
+web/dist/
+.env
+.env.*
+!.env.example
+functions/node_modules/
+functions/lib/
+.firebase/
+.firebaserc
+firebase-debug.log
+firebase-debug.*.log
+firestore-debug.log
 
 ## Visual Studio and editors
 .vs/

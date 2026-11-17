@@ -1,0 +1,61 @@
+{
+  "name": "cola-comigo-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "format:check": "prettier --check src tests *.json *.ts *.js",
+    "typecheck": "tsc -b --pretty",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:rules": "firebase --config ../firebase.json emulators:exec --project cola-comigo-test --only firestore \"npm run test:rules:run\"",
+    "test:rules:run": "vitest run --config vitest.rules.config.ts",
+    "emulators": "firebase --config ../firebase.json emulators:start --project cola-comigo-local --only auth,firestore,functions",
+    "deploy": "npm --prefix ../functions run lint && npm --prefix ../functions run build && npm run build && firebase --config ../firebase.json deploy --only hosting,functions,firestore:rules,firestore:indexes"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "firebase": "^12.5.0",
+    "lucide-react": "^0.555.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-hook-form": "^7.66.0",
+    "react-router-dom": "^7.9.5",
+    "recharts": "^3.4.1",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@firebase/rules-unit-testing": "^5.0.0",
+    "@tailwindcss/vite": "^4.1.17",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^24.19.2",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "firebase-tools": "^14.22.0",
+    "globals": "^16.5.0",
+    "jsdom": "^27.1.0",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.17",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.0",
+    "vite": "^8.3.6",
+    "vite-plugin-pwa": "^1.1.0",
+    "vitest": "^4.0.8"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7"
+  }
+}
